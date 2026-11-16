@@ -47,3 +47,4 @@ curl -s -X POST --data-binary "SELECT * FROM users WHERE id = 1" http://127.0.0.
 - `docs/assignment.md`: 과제 원문
 - `docs/bench.md`: 벤치마크 결과
 - `docs/refactoring.md`: 리팩터링 후보
+- `docs/retro/`: 회고 (진행하며 겪은 문제·원인·해결)
