@@ -24,3 +24,4 @@
 | 14 | 2026-11-16 | 서버 `TCP_NODELAY` 켬 | Nagle + 지연 ACK로 요청당 ~40 ms (실측 14 s → 0.22 s) | AI | §11.6 | 유효 |
 | 15 | 2026-11-16 | debug 프리셋 `-O1`, 100만 건 저장소 테스트는 debug에서 건너뜀(`MINIDB_SKIP_LARGE`) | LeakSanitizer 종료 검사가 60 s. 같은 검증은 tsan·release에서 | AI | §15 | 유효 |
 | 16 | 2026-11-16 | CLI VARCHAR 출력 폭 최대 64, 비예외 에러 type 이름(RequestError 등) | `[고정]` 규칙이 정하지 않은 빈칸 | AI | §8, §11.4 | 유효 |
+| 17 | 2026-11-16 | 사람·위임 결정만 주제별로 모은 `decisions-summary.md`를 둔다. `architecture.md`에서 뽑은 사본이고, `[고정]`이나 사람·위임 결정이 바뀌면 같은 커밋에서 갱신 | `architecture.md`는 길고 AI 세부가 섞여 있어 팀 공유가 어려움 | 사람 | §0 | 유효 |

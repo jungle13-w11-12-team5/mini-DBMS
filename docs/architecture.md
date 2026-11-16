@@ -38,6 +38,7 @@
 | `docs/guide.md` | 배우는 사람용 해설. 처음 읽는 문서 (이 문서는 마지막) | 설계가 바뀌면 같이 고침 |
 | `docs/architecture.md` (이 문서) | 현재 설계. 규칙의 유일한 원본 | 덮어씀 |
 | `docs/decisions.md` | 결정 로그. 언제·누가·왜 | 덧붙이기만 |
+| `docs/decisions-summary.md` | 사람·위임 결정만 주제별로 모은 팀 공유용 요약. 이 문서의 사본 | `[고정]`이나 사람·위임 결정이 바뀌면 같은 커밋에서 고침 |
 | `docs/refactoring.md` | 리팩터링 후보, 다 만든 뒤 할 일 | 자유 |
 | `docs/explain-log.md` | 이해 검사 대기 목록 | 덧붙이고 상태만 바꿈 |
 | `CHANGELOG.md` | 버전별 변경 (첫 마일스톤부터) | 덧붙이기만 |
@@ -614,7 +615,7 @@ src/
   cli/      main.cpp  table_printer.*  dump.*
 tests/      모듈별 *_test.cpp, testutil/ (FaultyFileIO, 손상 파일 생성기, 임시 디렉터리)
 bench/      minidb_bench, results/                                       (P2)
-docs/       architecture.md  decisions.md  refactoring.md  explain-log.md  assignment.md  bench.md  archive/
+docs/       architecture.md  decisions.md  decisions-summary.md  refactoring.md  explain-log.md  assignment.md  bench.md  archive/
 ```
 
 ## 17. 마일스톤
