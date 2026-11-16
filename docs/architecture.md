@@ -35,6 +35,7 @@
 | 문서 | 역할 | 수정 방식 |
 |---|---|---|
 | `docs/assignment.md` | 과제 원문 | 고정 |
+| `docs/guide.md` | 배우는 사람용 해설. 처음 읽는 문서 (이 문서는 마지막) | 설계가 바뀌면 같이 고침 |
 | `docs/architecture.md` (이 문서) | 현재 설계. 규칙의 유일한 원본 | 덮어씀 |
 | `docs/decisions.md` | 결정 로그. 언제·누가·왜 | 덧붙이기만 |
 | `docs/refactoring.md` | 리팩터링 후보, 다 만든 뒤 할 일 | 자유 |

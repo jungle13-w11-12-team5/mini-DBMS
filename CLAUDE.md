@@ -9,6 +9,7 @@ C++17 mini DBMS (Krafton Jungle). P1 SQL/CLI + file storage → P2 in-memory B+t
 ## Docs
 - `docs/architecture.md` — single design doc, current state. Source of truth for every rule. `[고정]` = human-fixed.
 - `docs/decisions.md` — append-only log (who/why). Never edit past rows; supersede with a new row.
+- `docs/guide.md` — human learning guide (narrative). Design change → update the affected chapter in the same commit.
 - `docs/assignment.md` — original assignment. Fixed.
 - `docs/refactoring.md` — post-scope candidates. Don't implement during P1–P3.
 - `docs/explain-log.md` — understanding checks. Add 1 row per delegated decision / AI principle the system relies on.

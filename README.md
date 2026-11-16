@@ -41,7 +41,8 @@ curl -s -X POST --data-binary "SELECT * FROM users WHERE id = 1" http://127.0.0.
 
 ## 4. 문서
 
-- `docs/architecture.md`: 설계 (단일 문서)
+- `docs/guide.md`: **처음 읽을 문서.** 동작 원리를 순서대로 따라가는 가이드
+- `docs/architecture.md`: 설계 (단일 문서, 규칙 참조용)
 - `docs/decisions.md`: 결정 로그
 - `docs/assignment.md`: 과제 원문
 - `docs/bench.md`: 벤치마크 결과
