@@ -18,7 +18,7 @@ C++17로 직접 만드는 미니 DBMS. 크래프톤 정글 미니 프로젝트.
 
 ## 2. 진행 상황
 
-설계 완료, 구현 시작 전. 마일스톤은 `docs/architecture.md` §17.
+MVP 완료 (0.1.0, 2026-11-16). Phase 1~3 전부 구현, ASan·TSan 테스트 통과. 측정 결과는 `docs/bench.md`, 변경 내역은 `CHANGELOG.md`.
 
 ## 3. 빌드와 실행
 
@@ -29,9 +29,20 @@ docker compose run --rm dev
 cmake --preset debug && cmake --build --preset debug && ctest --preset debug
 ```
 
+컨테이너 안에서 써 보기:
+
+```bash
+mkdir -p /data/demo && printf 'name VARCHAR(16)\nage INT\n' > /data/demo/users.schema
+echo "INSERT INTO users VALUES ('kim', 25); SELECT * FROM users;" > /tmp/a.sql
+./build/debug/minidb run --data /data/demo /tmp/a.sql
+./build/debug/minidb serve --data /data/demo --port 8080 &
+curl -s -X POST --data-binary "SELECT * FROM users WHERE id = 1" http://127.0.0.1:8080/query
+```
+
 ## 4. 문서
 
 - `docs/architecture.md`: 설계 (단일 문서)
 - `docs/decisions.md`: 결정 로그
 - `docs/assignment.md`: 과제 원문
+- `docs/bench.md`: 벤치마크 결과
 - `docs/refactoring.md`: 리팩터링 후보

@@ -2,7 +2,7 @@
 
 전체 구조와 세부 명세를 담은 **단일 설계 문서**다. 시스템의 현재 모습만 적고, 바뀌면 덮어쓴다.
 
-- 상태: 통합 초안 (2026-11-16). 승인되면 Phase 1 구현(§17 마일스톤)을 시작한다.
+- 상태: MVP 구현 완료 (2026-11-16). M1~M15 전부 구현, debug(ASan+UBSan)·tsan·release 프리셋에서 테스트 9개 통과. 측정 결과는 `docs/bench.md`.
 - 표기: `[고정]`은 사람이 정한 규칙이다(2026-11-15 큰 설계, 결정 로그 #0~#5). 바꾸려면 묻는다. 표시가 없는 것은 AI가 정한 세부이고, 구현하면서 고칠 수 있다(고치면 결정 로그에 남긴다).
 - `[P1]` `[P2]` `[P3]`는 그 내용이 처음 들어가는 Phase다.
 
@@ -381,7 +381,7 @@ minidb serve [--port 8080] [--workers N] [--queue 1024] [--data DIR]     (P3)
 - **run**: 문장을 하나씩 실행한다.
   - INSERT 출력: `INSERT 1 (id=5)`.
   - SELECT 출력: 헤더 → 구분선 → 행 → `(N rows)`.
-  - `[고정]` 컬럼 폭은 스키마에서 나온다(`max(이름 길이, VARCHAR n | INT 20)`). 그래서 버퍼링 없이 행이 나오는 즉시 출력한다.
+  - `[고정]` 컬럼 폭은 스키마에서 나온다(`max(이름 길이, VARCHAR n | INT 20)`). 그래서 버퍼링 없이 행이 나오는 즉시 출력한다. VARCHAR 폭은 최대 64로 자른다. `VARCHAR(65535)`를 65535칸으로 채우지 않기 위해서이고, 64바이트를 넘는 값은 정렬이 어긋난다.
   - 문자열 안의 제어 문자(`\n` `\t` 등)는 이스케이프해서 정렬을 지킨다. 한글처럼 여러 바이트인 글자는 폭이 어긋날 수 있다(바이트 기준 폭).
 - **에러** `[고정]`: `<file>:<line>:<col>: <Type>: <message>`로 출력하고 다음 문장으로 간다. `--bail`이면 첫 에러에서 멈춘다.
 - **종료 코드**: 0 = 모두 성공, 1 = 실패한 문장이 있음, 2 = 사용법 오류나 시작 실패(복구 거부 등).
@@ -441,7 +441,12 @@ P2 (인덱스 vs 전체 스캔). 실행 파일 `minidb_bench`, Release 빌드, �
 - **방법**: 워밍업 1회. (a)는 조회별 중앙값과 p99, (b)는 5회 반복 중앙값. 페이지 캐시가 데워진 상태임을 명시한다. 데이터는 `/data` 볼륨(ext4)에 둔다.
 - **보고**: `docs/bench.md` 표 + 원본 CSV(`bench/results/*.csv`). 환경(CPU, 커널, 빌드 플래그)을 같이 적는다.
 
-P3 (동시성): 전역 mutex와 shared_mutex의 처리량 비교, 배치 INSERT와 단건 INSERT의 비교. 작업 부하(읽기 전용, 쓰기 전용, 9:1 혼합)와 비교 방법은 P3 구현 시작 때 이 절에 채운다.
+P3 (동시성). 실행 파일 `minidb_bench_lock`과 `minidb_bench_lock_exclusive`.
+- 같은 소스를 두 번 빌드해 락 방식만 바꾼다. 두 번째는 `MINIDB_EXCLUSIVE_LOCK`을 켜서 읽기도 `unique_lock`을 쓴다.
+- HTTP를 빼고 `Table` API를 직접 불러 락 효과만 본다.
+- 작업 부하 4종: 읽기 전용(findById), 읽기 90% + 단건 INSERT 10%, 단건 INSERT, 100행 배치 INSERT. 스레드 1·2·4·8개로 각 1.5초.
+- 보고: `bench/results/lock.csv`, 해석은 `docs/bench.md` §5.
+- 한 번에 실행: `bash bench/run_bench.sh` (P2 + P3 + SQL 경로 + 스트리밍 RSS).
 
 ## 11. API 서버 `[P3]`
 
@@ -496,6 +501,8 @@ public:
 - 행 수 상한 없음. 행은 나오는 대로 직렬화해 보내고, 메모리는 결과 크기와 무관하다.
 - 느린 클라이언트: 쓰기 타임아웃(5초)이 나면 `DataSink::write`가 실패하고 → `NdjsonSink::row`가 false를 돌려주고 → 실행기가 멈추고 → 워커가 풀려난다.
 - 직렬화는 `common/json_writer`가 한다(문자열 이스케이프, 정수). 입력 UTF-8은 Lexer가 이미 검증했다.
+- NDJSON은 16 KiB까지 모았다가 chunk 하나로 쓴다 (결정 #13). 행마다 chunk를 쓰면 행마다 시스템 콜과 chunk 헤더가 붙는다. 버퍼 크기가 고정이라 메모리는 여전히 결과 크기와 무관하다(실측: `docs/bench.md` §4).
+- 예외가 아닌 에러의 `type`: 요청 형태 위반 `RequestError`, 큐 가득 `Overloaded`, 바디 초과 `PayloadTooLarge`, 없는 경로 `NotFound`, 그 밖의 예외 `InternalError`.
 
 ### 11.5 내구성과 종료 `[고정]`
 
@@ -503,11 +510,14 @@ public:
 - SIGINT/SIGTERM: 핸들러는 `std::atomic<bool>`만 세운다. 메인 루프가 이 순서로 진행한다: 새 연결 거절(`svr.stop()`) → 큐와 처리 중인 작업 비우기(`ThreadPool::shutdown`, 스트림은 타임아웃으로 상한) → fsync → 닫기.
 - `listen()`은 별도 스레드에서 돌고, 메인 스레드는 플래그를 100 ms마다 확인한다.
 
-### 11.6 P3 시작 때 정할 것
+### 11.6 구현하며 정한 것
 
-- 큐가 가득 찼을 때 503 보내는 방법: **[추정]** httplib는 `enqueue`가 false이면 응답 없이 소켓을 닫는다. 사용할 버전의 `httplib.h`에서 확인하고, 맞다면 accept 쪽에서 503을 직접 써야 한다.
-- cpp-httplib를 가져오는 방법(단일 헤더를 버전 고정해 넣기 vs apt).
-- NDJSON 쓰기 단위(행마다 chunk vs 작은 버퍼 후 flush). 측정해서 정하되, 메모리는 결과 크기와 무관하다는 조건을 지킨다.
+- **cpp-httplib는 Ubuntu apt 패키지(0.14.3)** (결정 #11). 헤더 전용이 아니라 `.so`로 컴파일된 판이라, .so를 빌드할 때 쓴 define(`CPPHTTPLIB_OPENSSL_SUPPORT` 등)을 pkg-config로 받아 똑같이 켠다. 이 define이 다르면 클래스 레이아웃이 어긋난다(ODR 위반).
+- **503은 "거절 레인"으로 보낸다** (결정 #12).
+  - 0.14.3의 `TaskQueue::enqueue`는 `void`라 거절할 방법이 없다. 신버전은 `bool`을 돌려주지만, 거절하면 응답 없이 소켓만 닫는다.
+  - 그래서 `ThreadPool::submit`이 실패하면 그 연결을 작은 전용 스레드(거절 레인, 워커 1개, 큐 4096)로 넘긴다. 그 스레드에서는 thread_local 플래그가 켜져 있어서, pre-routing 핸들러가 요청 본문을 읽지 않고 바로 `503 + Connection: close`를 보낸다.
+  - 거절 레인까지 가득 차면 accept 스레드에서 직접 503을 보낸다. 연결을 그냥 버리면 소켓이 새기 때문이다.
+- **`TCP_NODELAY`를 켠다** (결정 #14). httplib는 응답을 헤더와 본문 두 번에 나눠 쓴다. 이때 Nagle 알고리즘과 상대의 지연 ACK가 맞물려 요청마다 약 40 ms가 붙었다. 켜기 전후로 동시성 테스트가 14 s → 7 s(서버만 켬) → 0.22 s(클라이언트도 켬)가 됐다.
 
 ## 12. 동시성 모델
 
@@ -582,7 +592,9 @@ P1·P2에는 락이 없다. P3에서 `Table` 안에 `std::shared_mutex` 하나�
 - **저장 위치**: 소스(`/work`)는 바인드 마운트(9p)이고, 빌드 산출물(`/work/build`)과 테이블 데이터(`/data`)는 named volume(ext4)이다.
   - 9p는 느리고 fsync 의미가 다르다. 벤치와 내구성 테스트는 반드시 ext4에서 돌린다.
   - 덤으로 볼트에 산출물과 대용량 `.tbl`이 쌓이지 않는다.
-- **프리셋**: `debug`(ASan+UBSan), `release`(-O2), `tsan`(P3부터).
+- **프리셋**: `debug`(ASan+UBSan, `-O1`), `release`(-O2), `tsan`(RelWithDebInfo).
+  - debug는 ASan 권장대로 `-O1`이다. `-O0`이면 100만 건 테스트가 2배 넘게 느리다.
+  - debug 테스트 프리셋은 `MINIDB_SKIP_LARGE=1`로 100만 건 저장소 테스트를 건너뛴다. 테스트 자체는 19초인데, 종료 시 LeakSanitizer 검사가 60초를 더 쓴다. 같은 테스트는 tsan(4초)과 release에서 돈다.
 - **TSan은 ASLR을 끄고 실행한다** (결정 #7). WSL2 커널 6.6은 `vm.mmap_rnd_bits=32`라서, 그대로 실행하면 TSan이 `unexpected memory mapping`으로 죽는다(10번 중 9번). `setarch $(uname -m) -R`을 쓰면 10번 중 10번 통과하고 일부러 넣은 레이스도 잡았다. `tsan` 프리셋이 ctest 실행기에 이 래퍼를 건다. 이 때문에 compose에 `seccomp:unconfined`가 있다.
 - **커밋 전 검사**: ai-collab 훅은 Windows 호스트의 git에서 돈다. 컨테이너에는 git이 없다.
 
@@ -637,6 +649,10 @@ docs/       architecture.md  decisions.md  refactoring.md  explain-log.md  assig
 
 ## 19. 남은 위험
 
-- §11.6의 P3 미정 항목 3개.
+- **워커 하나가 연결 하나를 붙잡는다.** httplib는 연결 단위로 작업을 큐에 넣고, keep-alive 연결이면 그 연결이 끝날 때까지(최대 keep-alive 타임아웃 5초, 요청 100개) 같은 워커가 처리한다.
+  - 그래서 동시에 열린 keep-alive 연결이 워커 수보다 많으면, 나머지 연결은 요청이 없어도 큐에서 기다린다.
+  - 테스트에서 클라이언트 8개 · 워커 4개일 때, 뒤쪽 4개가 클라이언트 읽기 타임아웃(5초)에 걸려 실패했다.
+  - 대책 후보: keep-alive 타임아웃 단축, 요청 단위 디스패치(이벤트 루프). `refactoring.md`에 있다.
+- **거절 레인은 스레드 1개**다. 503을 받을 클라이언트가 요청을 아주 느리게 보내면 거절 레인이 읽기 타임아웃(5초)만큼 막히고, 그동안 다른 거절도 늦어진다.
 - 순차 삽입 시 리프 충전율 50%: 1M 건이면 인덱스 메모리가 약 2배다. 재시작하면 회복된다. 맨 오른쪽 분할 특수 처리는 `refactoring.md`에 있다.
 - CLI 출력 폭이 바이트 기준이라 여러 바이트 글자는 정렬이 어긋난다. 의도한 단순화다.
